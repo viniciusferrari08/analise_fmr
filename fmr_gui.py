@@ -5,7 +5,7 @@ Permite upload de arquivos .dat e visualização dos espectros
 """
 
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk, filedialog, messagebox, simpledialog
 import numpy as np
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
@@ -40,9 +40,9 @@ class FMRSpectrumAnalyzer:
     def _fit_derivative_lorentzian(self, campo: np.ndarray, sinal: np.ndarray):
         """Ajusta derivada de Lorentziana para extrair Hr com precisão."""
         def derivative_lorentzian(H, Hr, A, Delta_H, offset):
-            # Forma correta da derivada da Lorentziana: dL/dH = -2A(H-Hr) / (ΔH² × (1 + ((H-Hr)/ΔH)²)²)
+            # Forma correta da derivada da Lorentziana: dL/dH = -2A(H-Hr) / (ΔH × (1 + ((H-Hr)/ΔH)²)²)
             normalized_diff = (H - Hr) / Delta_H
-            denominator = Delta_H**2 * (1 + normalized_diff**2)**2
+            denominator = Delta_H * (1 + normalized_diff**2)**2
             return -2 * A * (H - Hr) / denominator + offset
 
         min_idx = np.argmin(sinal)
@@ -64,9 +64,9 @@ class FMRSpectrumAnalyzer:
             bounds = ([Hr_range[0], A_range[0], Delta_H_range[0], offset_range[0]],
                      [Hr_range[1], A_range[1], Delta_H_range[1], offset_range[1]])
 
-            popt, pcov = curve_fit(derivative_lorentzian, campo, sinal,
-                                  p0=[Hr_guess, A_guess, Delta_H_guess, offset_guess],
-                                  bounds=bounds, maxfev=20000)
+            popt, _ = curve_fit(derivative_lorentzian, campo, sinal,
+                               p0=[Hr_guess, A_guess, Delta_H_guess, offset_guess],
+                               bounds=bounds, maxfev=20000)
 
             fitted_curve = derivative_lorentzian(campo, *popt)
             r_squared = 1 - np.sum((sinal - fitted_curve)**2) / np.sum((sinal - np.mean(sinal))**2)
@@ -115,9 +115,9 @@ class FMRSpectrumAnalyzer:
     def _fit_and_plot_lorentzian(self, campo: np.ndarray, sinal: np.ndarray):
         """Ajusta derivada Lorentziana e retorna Hr e curva ajustada para plotagem."""
         def derivative_lorentzian(H, Hr, A, Delta_H, offset):
-            # Forma correta da derivada da Lorentziana: dL/dH = -2A(H-Hr) / (ΔH² × (1 + ((H-Hr)/ΔH)²)²)
+            # Forma correta da derivada da Lorentziana: dL/dH = -2A(H-Hr) / (ΔH × (1 + ((H-Hr)/ΔH)²)²)
             normalized_diff = (H - Hr) / Delta_H
-            denominator = Delta_H**2 * (1 + normalized_diff**2)**2
+            denominator = Delta_H * (1 + normalized_diff**2)**2
             return -2 * A * (H - Hr) / denominator + offset
 
         min_idx = np.argmin(sinal)
@@ -464,7 +464,7 @@ class FMRGuiApp:
             messagebox.showwarning("Avisos de Carregamento", error_summary)
 
     
-    def on_file_select(self, event):
+    def on_file_select(self, event=None):
         """Callback para seleção de arquivo na lista"""
         selection = self.files_listbox.curselection()
         if selection:
@@ -536,7 +536,7 @@ class FMRGuiApp:
 
                     # Gerar curva ajustada para visualização
                     try:
-                        Hr_fit, Delta_H_fit, fitted_curve = self.analyzer._fit_and_plot_lorentzian(
+                        _, _, fitted_curve = self.analyzer._fit_and_plot_lorentzian(
                             file_info['campo'], file_info['sinal'])
                         file_info['fitted_curve'] = fitted_curve
                     except:
@@ -635,19 +635,124 @@ class FMRGuiApp:
         canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
     
     def save_plot(self):
-        """Salva gráfico atual"""
-        filename = filedialog.asksaveasfilename(
-            title="Salvar gráfico",
-            defaultextension=".png",
-            filetypes=[("PNG", "*.png"), ("PDF", "*.pdf"), ("SVG", "*.svg")]
-        )
-        
-        if filename:
-            try:
-                self.fig.savefig(filename, dpi=300, bbox_inches='tight')
-                messagebox.showinfo("Sucesso", f"Gráfico salvo em {filename}")
-            except Exception as e:
-                messagebox.showerror("Erro", f"Erro ao salvar gráfico:\n{e}")
+        """Salva gráfico(s) com opções de seleção"""
+        # Criar janela de seleção
+        save_window = tk.Toplevel(self.root)
+        save_window.title("Salvar Gráficos")
+        save_window.geometry("400x300")
+        save_window.transient(self.root)
+        save_window.grab_set()
+
+        # Centralizar janela
+        save_window.update_idletasks()
+        x = (save_window.winfo_screenwidth() // 2) - (400 // 2)
+        y = (save_window.winfo_screenheight() // 2) - (300 // 2)
+        save_window.geometry(f"400x300+{x}+{y}")
+
+        # Frame principal
+        main_frame = ttk.Frame(save_window, padding="20")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Título
+        title_label = ttk.Label(main_frame, text="Selecione os gráficos para salvar:",
+                               font=('Arial', 12, 'bold'))
+        title_label.pack(pady=(0, 20))
+
+        # Variáveis de controle para checkboxes
+        save_spectrum_var = tk.BooleanVar(value=True)
+        save_linewidth_var = tk.BooleanVar(value=False)
+        save_kittel_var = tk.BooleanVar(value=False)
+
+        # Checkboxes
+        spectrum_check = ttk.Checkbutton(main_frame, text="Espectro Individual",
+                                        variable=save_spectrum_var)
+        spectrum_check.pack(anchor=tk.W, pady=5)
+
+        linewidth_check = ttk.Checkbutton(main_frame, text="Largura de Linha vs Frequência",
+                                         variable=save_linewidth_var)
+        linewidth_check.pack(anchor=tk.W, pady=5)
+
+        kittel_check = ttk.Checkbutton(main_frame, text="Ajuste de Kittel",
+                                      variable=save_kittel_var)
+        kittel_check.pack(anchor=tk.W, pady=5)
+
+        # Verificar se os dados necessários estão disponíveis
+        if not any(f['processed'] for f in self.loaded_files):
+            linewidth_check.config(state='disabled')
+
+        if self.kittel_params is None:
+            kittel_check.config(state='disabled')
+        else:
+            save_kittel_var.set(True)  # Marcar por padrão se disponível
+
+        # Se há dados de largura de linha, marcar por padrão
+        if any(f.get('processed') and 'Delta_H' in f for f in self.loaded_files):
+            save_linewidth_var.set(True)
+
+        # Frame para formato de arquivo
+        format_frame = ttk.LabelFrame(main_frame, text="Formato de arquivo", padding="10")
+        format_frame.pack(fill=tk.X, pady=(20, 10))
+
+        format_var = tk.StringVar(value="png")
+        ttk.Radiobutton(format_frame, text="PNG (recomendado)", variable=format_var, value="png").pack(anchor=tk.W)
+        ttk.Radiobutton(format_frame, text="PDF (vetorial)", variable=format_var, value="pdf").pack(anchor=tk.W)
+        ttk.Radiobutton(format_frame, text="SVG (vetorial)", variable=format_var, value="svg").pack(anchor=tk.W)
+
+        # Frame para botões
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(fill=tk.X, pady=(20, 0))
+
+        def save_selected():
+            """Salva os gráficos selecionados"""
+            plots_to_save = []
+
+            if save_spectrum_var.get():
+                plots_to_save.append(("espectro", "Espectro Individual", self.fig))
+            if save_linewidth_var.get():
+                plots_to_save.append(("largura_linha", "Largura de Linha", self.linewidth_fig))
+            if save_kittel_var.get():
+                plots_to_save.append(("kittel", "Ajuste de Kittel", self.kittel_fig))
+
+            if not plots_to_save:
+                messagebox.showwarning("Aviso", "Selecione pelo menos um gráfico para salvar")
+                return
+
+            # Escolher diretório base
+            directory = filedialog.askdirectory(title="Escolher pasta para salvar os gráficos")
+            if not directory:
+                return
+
+            # Escolher nome base para os arquivos
+            base_name = simpledialog.askstring("Nome dos arquivos",
+                                              "Nome base para os arquivos:",
+                                              initialvalue="fmr_analise")
+            if not base_name:
+                base_name = "fmr_analise"
+
+            # Salvar cada gráfico
+            saved_files = []
+            extension = f".{format_var.get()}"
+
+            for plot_id, plot_name, figure in plots_to_save:
+                try:
+                    filename = os.path.join(directory, f"{base_name}_{plot_id}{extension}")
+                    figure.savefig(filename, dpi=300, bbox_inches='tight')
+                    saved_files.append(f"• {plot_name}: {os.path.basename(filename)}")
+                except Exception as e:
+                    messagebox.showerror("Erro", f"Erro ao salvar {plot_name}:\n{str(e)}")
+                    return
+
+            # Mostrar sucesso
+            success_msg = f"Gráficos salvos com sucesso em:\n{directory}\n\n" + "\n".join(saved_files)
+            messagebox.showinfo("Sucesso", success_msg)
+            save_window.destroy()
+
+        def cancel_save():
+            save_window.destroy()
+
+        # Botões
+        ttk.Button(button_frame, text="Salvar", command=save_selected).pack(side=tk.RIGHT, padx=(5, 0))
+        ttk.Button(button_frame, text="Cancelar", command=cancel_save).pack(side=tk.RIGHT)
 
     def update_linewidth_plot(self):
         """Atualiza o plot de largura de linha vs frequência"""
@@ -796,7 +901,7 @@ R² = {r2:.6f}"""
 def main():
     """Função principal para executar a GUI"""
     root = tk.Tk()
-    app = FMRGuiApp(root)
+    FMRGuiApp(root)
     root.mainloop()
 
 if __name__ == "__main__":
