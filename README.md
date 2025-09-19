@@ -101,29 +101,6 @@ dL/dH = -2A(H-Hr) / [ΔH² × (1 + ((H-Hr)/ΔH)²)²] + offset
 
 Esta é a derivada exata da Lorentziana normalizada `L(H) = A / (1 + ((H-Hr)/ΔH)²)`, que permite extração precisa do campo de ressonância (Hr) e largura de linha (ΔH) com controle de qualidade estatístico (limite R² > 0.7).
 
-## Estrutura do Projeto
-
-```
-📁 Módulos Principais
-├── extrair_campo_ressonancia.py    # Classe FMRSpectrumAnalyzer - processamento de espectros
-├── fmr_fitting.py                  # Classe FMRFitting - ajuste da equação de Kittel
-├── fmr_gui.py                      # Interface gráfica do usuário
-├── analise_fmr_completa.py         # Pipeline de análise completa
-├── requirements.txt                # Dependências Python
-├── README.md                       # Este arquivo
-└── CLAUDE.md                       # Guia de desenvolvimento Claude Code
-
-📁 Estrutura de Dados
-├── EAFExp2025/                     # Raiz dos dados experimentais
-│   ├── NiFe_Cu_6nm/medidas selec/  # Medidas selecionadas NiFe/Cu
-│   └── [outras amostras]/          # Conjuntos de dados experimentais adicionais
-└── NiFe/                           # Arquivos de dados da amostra NiFe
-
-📁 Arquivos de Saída
-├── campos_ressonancia_*.txt        # Campos de ressonância extraídos
-├── resultado_analise_completa.txt  # Relatório de análise completa
-└── ajuste_fmr_final.png           # Visualização do ajuste final
-```
 
 ## Formatos de Dados
 
@@ -212,4 +189,5 @@ Este software é projetado para:
 - **Kittel, C.** "Introduction to Solid State Physics" - Capítulo 15: Ressonância Ferromagnética
 - **Farle, M.** "Ferromagnetic resonance of ultrathin metallic layers" Rep. Prog. Phys. **61** 755 (1998)
 - **Heinrich, B. & Cochran, J.F.** "Ultrathin metallic magnetic films" Adv. Phys. **42** 523 (1993)
+
 
