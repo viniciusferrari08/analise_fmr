@@ -74,7 +74,7 @@ A interface gráfica `fmr_gui.py` oferece uma experiência completa para anális
 
 ### 1. Interface Principal e Upload de Dados
 
-![Interface Principal](referencias%20/imagens/01.png)
+![Interface Principal](imagens/01.png)
 
 **Funcionalidades Principais:**
 - **Upload de Arquivos**: Botão "Upload Arquivos .dat" permite carregar múltiplos espectros experimentais
@@ -88,7 +88,7 @@ A interface gráfica `fmr_gui.py` oferece uma experiência completa para anális
 
 ### 2. Análise Individual de Espectros FMR
 
-![Espectro Individual](referencias%20/imagens/04%20curva%20de%20ressoanncia.png)
+![Espectro Individual](imagens/01.png)
 
 **Características da Análise Espectral:**
 - **Espectro Experimental**: Curva azul mostra dados originais em formato dχ"/dH
@@ -99,7 +99,7 @@ A interface gráfica `fmr_gui.py` oferece uma experiência completa para anális
 
 ### 3. Ajuste da Equação de Kittel
 
-![Ajuste de Kittel](referencias%20/imagens/02%20kittel.png)
+![Ajuste de Kittel](imagens/02%20kittel.png)
 
 **Implementação Completa da Teoria FMR:**
 - **Dados Experimentais**: Pontos vermelhos mostram frequência vs. campo de ressonância
@@ -113,7 +113,7 @@ A interface gráfica `fmr_gui.py` oferece uma experiência completa para anális
 
 ### 4. Análise de Largura de Linha vs Frequência
 
-![Largura de Linha](referencias%20/imagens/03%20ajuste%20linear.png)
+![Largura de Linha](imagens/03%20ajuste%20linear.png)
 
 **Análise de Amortecimento Magnético:**
 - **Dados Experimentais**: Pontos vermelhos mostram ΔH extraído de cada espectro
