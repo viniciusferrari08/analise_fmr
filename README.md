@@ -68,6 +68,117 @@ fitter = FMRFitting()
 params, fitted_values = fitter.fit_inplane_data(frequencies, fields)
 ```
 
+## Tutorial Visual da Interface Gráfica
+
+A interface gráfica `fmr_gui.py` oferece uma experiência completa para análise de dados FMR através de uma interface intuitiva com múltiplas abas especializadas.
+
+### 1. Interface Principal e Upload de Dados
+
+![Interface Principal](referencias%20/imagens/01.png)
+
+**Funcionalidades Principais:**
+- **Upload de Arquivos**: Botão "Upload Arquivos .dat" permite carregar múltiplos espectros experimentais
+- **Lista de Arquivos**: Visualização organizada dos espectros carregados por frequência
+- **Controles de Análise**:
+  - "Processar Todos" - Executa extração automática de Hr e ΔH
+  - "Mostrar Todos Espectros" - Visualização em grade de múltiplos espectros
+  - "Ajustar Kittel" - Implementa ajuste da equação de Kittel
+- **Opções de Visualização**: Checkboxes para mostrar campo de ressonância (Hr) e curvas de ajuste
+- **Exportação**: Funcionalidade avançada de salvamento de múltiplos gráficos
+
+### 2. Análise Individual de Espectros FMR
+
+![Espectro Individual](referencias%20/imagens/04%20curva%20de%20ressoanncia.png)
+
+**Características da Análise Espectral:**
+- **Espectro Experimental**: Curva azul mostra dados originais em formato dχ"/dH
+- **Campo de Ressonância**: Linha vertical vermelha tracejada indica Hr extraído
+- **Ajuste Lorentziano**: Curva vermelha sólida mostra derivada de Lorentziana ajustada
+- **Informações Precisas**: Display automático de Hr e largura de linha ΔH
+- **Qualidade do Ajuste**: Controle de qualidade com R² para validação estatística
+
+### 3. Ajuste da Equação de Kittel
+
+![Ajuste de Kittel](referencias%20/imagens/02%20kittel.png)
+
+**Implementação Completa da Teoria FMR:**
+- **Dados Experimentais**: Pontos vermelhos mostram frequência vs. campo de ressonância
+- **Ajuste Teórico**: Curva azul implementa equação de Kittel para geometria no plano
+- **Parâmetros Magnéticos Extraídos**:
+  - **Ms**: Magnetização de saturação (~60.35 mT neste exemplo)
+  - **Ha**: Campo de anisotropia no plano (~12.8 mT)
+  - **Hk**: Campo de anisotropia perpendicular (~100 mT)
+- **Validação Estatística**: R² = 0.997 demonstra excelente qualidade do ajuste
+- **Faixa Ampla**: Cobertura de 5-12 GHz para caracterização robusta
+
+### 4. Análise de Largura de Linha vs Frequência
+
+![Largura de Linha](referencias%20/imagens/03%20ajuste%20linear.png)
+
+**Análise de Amortecimento Magnético:**
+- **Dados Experimentais**: Pontos vermelhos mostram ΔH extraído de cada espectro
+- **Ajuste Linear**: Equação y = 0.227x + 0.353 com R² = 0.9987
+- **Interpretação Física**:
+  - **Slope (0.227 mT/GHz)**: Relacionado ao amortecimento magnético intrínseco
+  - **Intercept (0.353 mT)**: Contribuição de amortecimento inomogêneo
+- **Qualidade Excepcional**: R² > 0.99 indica dados de alta qualidade experimental
+
+### 5. Funcionalidade Avançada de Exportação
+
+A interface oferece sistema de exportação inteligente que permite:
+
+**Seleção Múltipla de Gráficos:**
+- ✅ Espectro Individual (aba ativa)
+- ✅ Largura de Linha vs Frequência (se processado)
+- ✅ Ajuste de Kittel (se executado)
+
+**Formatos Profissionais:**
+- **PNG**: Alta resolução (300 DPI) para apresentações
+- **PDF**: Formato vetorial para publicações científicas
+- **SVG**: Editável para customização adicional
+
+**Nomenclatura Organizada:**
+- Arquivos salvos como: `nome_base_espectro.png`, `nome_base_kittel.pdf`, etc.
+- Validação automática de dados disponíveis
+- Feedback detalhado de sucesso/erro
+
+### 6. Fluxo de Trabalho Típico
+
+**Passo a Passo para Análise Completa:**
+
+1. **Preparação dos Dados**:
+   ```bash
+   # Organizar arquivos .dat no formato correto
+   # freq(GHz) corrente(mA) campo(Oe) sinal_fmr(u.a.)
+   ```
+
+2. **Carregamento na Interface**:
+   - Executar `python fmr_gui.py`
+   - Clicar "Upload Arquivos .dat"
+   - Selecionar múltiplos arquivos experimentais
+
+3. **Processamento Automático**:
+   - Clicar "Processar Todos"
+   - Software extrai automaticamente Hr e ΔH de cada espectro
+   - Validação com R² > 0.7 para garantir qualidade
+
+4. **Análise de Parâmetros Magnéticos**:
+   - Navegar para aba "Ajuste de Kittel"
+   - Clicar "Ajustar Kittel" para extrair Ms, Ha, Hk
+   - Verificar qualidade do ajuste (R² > 0.99 típico)
+
+5. **Análise de Amortecimento**:
+   - Aba "Largura de Linha" mostra dependência ΔH vs frequência
+   - Ajuste linear automático revela contribuições intrínsecas/extrínseças
+
+6. **Exportação Profissional**:
+   - Clicar "Salvar Gráfico"
+   - Selecionar plots desejados (Kittel + Largura de Linha)
+   - Escolher formato (PDF para publicações)
+   - Definir nome base dos arquivos
+
+**Tempo Típico de Análise**: 5-10 minutos para conjunto completo de 8-12 espectros
+
 ## Fundamentação Teórica
 
 ### Implementação da Equação de Kittel
