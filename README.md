@@ -88,7 +88,7 @@ A interface gráfica `fmr_gui.py` oferece uma experiência completa para anális
 
 ### 2. Análise Individual de Espectros FMR
 
-![Espectro Individual](imagens/01.png)
+![Espectro Individual](imagens/04%20curva%20de%20ressoanncia.png)
 
 **Características da Análise Espectral:**
 - **Espectro Experimental**: Curva azul mostra dados originais em formato dχ"/dH
