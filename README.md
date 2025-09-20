@@ -252,37 +252,6 @@ freq(GHz)  corrente(mA)  campo(Oe)  sinal_fmr(u.a.)
 pip install numpy>=1.20.0 scipy>=1.7.0 matplotlib>=3.5.0 pandas>=1.3.0
 ```
 
-## Exemplo de Resultados
-
-### Análise de Campos de Ressonância
-```
-=== EXTRAÇÃO DE CAMPOS DE RESSONÂNCIA FMR ===
-Freq(GHz)    Hr(Oe)    Hr(mT)    ΔH(Oe)    ΔH(mT)    R²
-5.0          355.8     35.6      17.8      1.8       0.95
-6.0          505.8     50.6      21.1      2.1       0.97
-7.0          676.3     67.6      24.5      2.4       0.94
-8.0          863.5     86.3      28.2      2.8       0.96
-9.0          1064.8    106.5     31.9      3.2       0.93
-10.0         1280.7    128.1     35.6      3.6       0.95
-11.0         1507.6    150.8     39.3      3.9       0.97
-12.0         1749.0    174.9     43.0      4.3       0.94
-```
-
-### Ajuste de Parâmetros Magnéticos
-```
-=== RESULTADOS DO AJUSTE DA EQUAÇÃO DE KITTEL ===
-Geometria: No Plano (θ = 0°)
-
-Parâmetros Ajustados:
-• Ms = 0.845 ± 0.012 T
-• Ha = 15.2 ± 2.1 mT
-• Hk = 98.7 ± 5.4 mT
-
-Qualidade Estatística:
-• R² = 0.998734
-• N° pontos de dados = 8
-• Faixa de frequência = 5-12 GHz
-```
 
 ## Aplicações
 
