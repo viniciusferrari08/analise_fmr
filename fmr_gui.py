@@ -241,11 +241,15 @@ class FMRGuiApp:
         title_label.pack(pady=(0, 20))
         
         # Botão para upload de arquivos
-        upload_btn = ttk.Button(control_frame, text="Upload Arquivos .dat", 
+        upload_btn = ttk.Button(control_frame, text="Upload Arquivos .dat",
                                command=self.upload_files)
         upload_btn.pack(fill=tk.X, pady=5)
-        
-        
+
+        # Botão para remover arquivos selecionados
+        remove_btn = ttk.Button(control_frame, text="Remover Arquivo(s) Selecionado(s)",
+                               command=self.remove_selected_file)
+        remove_btn.pack(fill=tk.X, pady=5)
+
         # Lista de arquivos carregados
         files_label = ttk.Label(control_frame, text="Arquivos Carregados:")
         files_label.pack(anchor=tk.W, pady=(20, 5))
@@ -258,9 +262,9 @@ class FMRGuiApp:
         scrollbar = ttk.Scrollbar(listbox_frame)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
-        # Listbox de arquivos
+        # Listbox de arquivos (com seleção múltipla)
         self.files_listbox = tk.Listbox(listbox_frame, yscrollcommand=scrollbar.set,
-                                       height=8, width=30)
+                                       height=8, width=30, selectmode=tk.EXTENDED)
         self.files_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.config(command=self.files_listbox.yview)
         
@@ -325,17 +329,10 @@ class FMRGuiApp:
         self.kittel_frame = ttk.Frame(self.notebook)
         self.notebook.add(self.kittel_frame, text="Ajuste de Kittel")
 
-        # Aba para resultados
-        self.results_frame = ttk.Frame(self.notebook)
-        self.notebook.add(self.results_frame, text="Resultados")
-        
         # Criar gráficos
         self.create_spectrum_plot()
         self.create_linewidth_plot()
         self.create_kittel_plot()
-
-        # Criar tabela de resultados
-        self.create_results_table()
         
         # Status bar
         self.status_var = tk.StringVar()
@@ -374,31 +371,6 @@ class FMRGuiApp:
         self.kittel_canvas = FigureCanvasTkAgg(self.kittel_fig, self.kittel_frame)
         self.kittel_canvas.draw()
         self.kittel_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-        
-    def create_results_table(self):
-        """Cria a tabela de resultados"""
-        # Frame para tabela
-        table_frame = ttk.Frame(self.results_frame)
-        table_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        
-        # Treeview para tabela
-        columns = ('Frequência (GHz)', 'Hr (Oe)', 'Hr (mT)', 'ΔH (Oe)', 'ΔH (mT)', 'Arquivo')
-        self.results_tree = ttk.Treeview(table_frame, columns=columns, show='headings')
-        
-        # Configurar colunas
-        for col in columns:
-            self.results_tree.heading(col, text=col)
-            self.results_tree.column(col, width=100)
-        
-        # Scrollbars
-        v_scrollbar = ttk.Scrollbar(table_frame, orient=tk.VERTICAL, command=self.results_tree.yview)
-        h_scrollbar = ttk.Scrollbar(table_frame, orient=tk.HORIZONTAL, command=self.results_tree.xview)
-        self.results_tree.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
-        
-        # Pack tudo
-        self.results_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        v_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        h_scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
     
     def upload_files(self):
         """Upload de arquivos individuais"""
@@ -471,6 +443,72 @@ class FMRGuiApp:
             index = selection[0]
             file_info = self.loaded_files[index]
             self.plot_spectrum(file_info)
+
+    def remove_selected_file(self):
+        """Remove arquivos selecionados da lista"""
+        selection = self.files_listbox.curselection()
+        if not selection:
+            messagebox.showwarning("Aviso", "Selecione pelo menos um arquivo para remover")
+            return
+
+        # Preparar mensagem de confirmação
+        if len(selection) == 1:
+            file_info = self.loaded_files[selection[0]]
+            confirm_msg = f"Deseja remover o arquivo:\n{file_info['filename']}?"
+        else:
+            confirm_msg = f"Deseja remover {len(selection)} arquivos selecionados?"
+
+        # Confirmar remoção
+        confirm = messagebox.askyesno("Confirmar Remoção", confirm_msg)
+        if not confirm:
+            return
+
+        # Coletar frequências removidas e índices (ordenar em ordem reversa para remoção)
+        removed_freqs = []
+        removed_names = []
+        indices_to_remove = sorted(selection, reverse=True)
+
+        # Remover arquivos (de trás para frente para não afetar índices)
+        for index in indices_to_remove:
+            file_info = self.loaded_files[index]
+            removed_freq = file_info['frequency']
+            removed_freqs.append(removed_freq)
+            removed_names.append(file_info['filename'])
+
+            # Remover da lista de arquivos carregados
+            self.loaded_files.pop(index)
+
+            # Remover da listbox
+            self.files_listbox.delete(index)
+
+            # Remover dos dados do analyzer (se processado)
+            if removed_freq in self.analyzer.spectra_data:
+                del self.analyzer.spectra_data[removed_freq]
+            if removed_freq in self.analyzer.resonance_fields:
+                del self.analyzer.resonance_fields[removed_freq]
+
+        # Limpar gráfico
+        self.ax.clear()
+        self.ax.text(0.5, 0.5, 'Selecione um arquivo para visualizar',
+                    ha='center', va='center', transform=self.ax.transAxes)
+        self.canvas.draw()
+
+        # Atualizar plots de largura de linha e Kittel
+        self.update_linewidth_plot()
+        if self.kittel_params is not None:
+            # Limpar ajuste de Kittel (necessário refazer)
+            self.kittel_params = None
+            self.kittel_ax.clear()
+            self.kittel_ax.text(0.5, 0.5, 'Execute o ajuste de Kittel novamente',
+                               ha='center', va='center', transform=self.kittel_ax.transAxes)
+            self.kittel_canvas.draw()
+
+        # Atualizar status
+        if len(removed_names) == 1:
+            self.status_var.set(f"Arquivo removido: {removed_names[0]}")
+        else:
+            self.status_var.set(f"{len(removed_names)} arquivos removidos")
+
     
     def plot_spectrum(self, file_info: dict):
         """Plota espectro individual"""
@@ -498,7 +536,7 @@ class FMRGuiApp:
         
         self.ax.set_xlabel('Campo Magnético (Oe)')
         self.ax.set_ylabel('dχ"/dH (u.a.)')
-        self.ax.set_title(f'Espectro FMR - {file_info["frequency"]} GHz')
+        self.ax.set_title(f'Espectro FMR - {file_info["frequency"]:.1f} GHz')
         self.ax.grid(True, alpha=0.3)
         self.ax.legend()
         
@@ -521,11 +559,7 @@ class FMRGuiApp:
         
         def process_thread():
             self.status_var.set("Processando arquivos...")
-            
-            # Limpar tabela de resultados
-            for item in self.results_tree.get_children():
-                self.results_tree.delete(item)
-            
+
             for i, file_info in enumerate(self.loaded_files):
                 try:
                     self.status_var.set(f"Processando {i+1}/{len(self.loaded_files)}: {file_info['filename']}")
@@ -547,22 +581,9 @@ class FMRGuiApp:
                     file_info['Hr'] = Hr
                     file_info['Delta_H'] = Delta_H
                     file_info['processed'] = True
-                    
-                    # Adicionar à tabela de resultados
-                    freq = file_info['frequency']
-                    Hr_mt = Hr * 0.1  # Oe -> mT
-                    Delta_H_mt = Delta_H * 0.1  # Oe -> mT
-                    
-                    self.results_tree.insert('', 'end', values=(
-                        f"{freq:.1f}",
-                        f"{Hr:.1f}",
-                        f"{Hr_mt:.1f}",
-                        f"{Delta_H:.1f}",
-                        f"{Delta_H_mt:.1f}",
-                        file_info['filename']
-                    ))
-                    
+
                     # Armazenar no analyzer para compatibilidade
+                    freq = file_info['frequency']
                     self.analyzer.spectra_data[freq] = {
                         'campo': file_info['campo'],
                         'sinal': file_info['sinal'],
@@ -611,21 +632,29 @@ class FMRGuiApp:
         
         for i, file_info in enumerate(processed_files):
             ax = fig.add_subplot(rows, cols, i + 1)
-            
-            ax.plot(file_info['campo'], file_info['sinal'], 'b-', linewidth=1)
-            
+
+            # Plot do espectro experimental
+            ax.plot(file_info['campo'], file_info['sinal'], 'b-', linewidth=1, label='Dados')
+
+            # Plot da curva ajustada (se disponível)
+            if 'fitted_curve' in file_info:
+                ax.plot(file_info['campo'], file_info['fitted_curve'], 'r-',
+                       linewidth=1.5, alpha=0.7, label='Ajuste')
+
+            # Linha vertical no Hr
             if 'Hr' in file_info:
-                ax.axvline(file_info['Hr'], color='red', linestyle='--', linewidth=1.5)
-            
-            title = f'{file_info["frequency"]} GHz'
+                ax.axvline(file_info['Hr'], color='green', linestyle='--', linewidth=1)
+
+            title = f'{file_info["frequency"]:.1f} GHz'
             if 'Delta_H' in file_info:
                 title += f'\nΔH = {file_info["Delta_H"]:.1f} Oe'
-            
+
             ax.set_title(title, fontsize=10)
             ax.set_xlabel('Campo (Oe)', fontsize=8)
             ax.set_ylabel('dχ"/dH', fontsize=8)
             ax.grid(True, alpha=0.3)
             ax.tick_params(labelsize=8)
+            ax.legend(fontsize=6, loc='best')
         
         fig.tight_layout()
         
@@ -817,6 +846,10 @@ class FMRGuiApp:
         self.linewidth_ax.legend()
         self.linewidth_ax.grid(True, alpha=0.3)
 
+        # Formatar eixo x com uma casa decimal
+        from matplotlib.ticker import FormatStrFormatter
+        self.linewidth_ax.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+
         self.linewidth_fig.tight_layout()
         self.linewidth_canvas.draw()
 
@@ -839,6 +872,11 @@ class FMRGuiApp:
 
             frequencies = np.array(frequencies)
             fields_tesla = np.array(fields_oe) * 1e-4  # Oe -> T
+
+            # Ordenar dados por frequência (independente da ordem de upload)
+            sort_idx = np.argsort(frequencies)
+            frequencies = frequencies[sort_idx]
+            fields_tesla = fields_tesla[sort_idx]
 
             # Fazer ajuste no plano
             self.kittel_params, fitted_fields = self.fmr_fitting.fit_inplane_data(frequencies, fields_tesla)
@@ -880,6 +918,10 @@ Hk = {self.kittel_params['Hk']*1000:.1f} ± {self.kittel_params['Hk_err']*1000:.
         self.kittel_ax.set_title('Ajuste de Kittel - Geometria No Plano', fontsize=14)
         self.kittel_ax.legend()
         self.kittel_ax.grid(True, alpha=0.3)
+
+        # Formatar eixo x com uma casa decimal
+        from matplotlib.ticker import FormatStrFormatter
+        self.kittel_ax.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
 
         # Adicionar texto com parâmetros se disponível
         if self.kittel_params:
