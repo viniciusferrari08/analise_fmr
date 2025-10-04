@@ -270,23 +270,12 @@ class FMRGuiApp:
         
         # Bind para seleção
         self.files_listbox.bind('<<ListboxSelect>>', self.on_file_select)
-        
-        # Botões de análise
-        analysis_frame = ttk.LabelFrame(control_frame, text="Análise", padding=10)
-        analysis_frame.pack(fill=tk.X, pady=(20, 10))
-        
-        process_btn = ttk.Button(analysis_frame, text="Processar Todos", 
-                                command=self.process_all_files)
-        process_btn.pack(fill=tk.X, pady=2)
-        
-        show_all_btn = ttk.Button(analysis_frame, text="Mostrar Todos Espectros",
-                                 command=self.show_all_spectra)
-        show_all_btn.pack(fill=tk.X, pady=2)
 
-        fit_kittel_btn = ttk.Button(analysis_frame, text="Ajustar Kittel",
-                                   command=self.fit_kittel_data)
-        fit_kittel_btn.pack(fill=tk.X, pady=2)
-        
+        # Botão para mostrar todos os espectros
+        show_all_btn = ttk.Button(control_frame, text="Mostrar Todos Espectros",
+                                 command=self.show_all_spectra)
+        show_all_btn.pack(fill=tk.X, pady=(20, 10))
+
         # Opções de visualização
         viz_frame = ttk.LabelFrame(control_frame, text="Visualização", padding=10)
         viz_frame.pack(fill=tk.X, pady=10)
@@ -422,9 +411,15 @@ class FMRGuiApp:
                     error_msg = f"{os.path.basename(filepath)}: {str(e)}"
                     errors.append(error_msg)
 
+        # Processar automaticamente os novos arquivos
+        if loaded_count > 0:
+            self.status_var.set(f"Processando {loaded_count} arquivo(s)...")
+            self.root.update()
+            self.process_new_files()
+
         # Atualizar status final
         if loaded_count > 0:
-            self.status_var.set(f"✓ {len(self.loaded_files)} arquivo(s) carregado(s) ({loaded_count} novos)")
+            self.status_var.set(f"✓ {len(self.loaded_files)} arquivo(s) carregado(s) e processado(s)")
         else:
             self.status_var.set(f"{len(self.loaded_files)} arquivo(s) carregado(s)")
 
@@ -524,7 +519,7 @@ class FMRGuiApp:
                 hr_label = f'Hr = {file_info["Hr"]:.1f} Oe'
                 if 'Delta_H' in file_info:
                     hr_label += f', ΔH = {file_info["Delta_H"]:.1f} Oe'
-                self.ax.axvline(file_info['Hr'], color='red', linestyle='--', 
+                self.ax.axvline(file_info['Hr'], color='green', linestyle='--', 
                                linewidth=2, label=hr_label)
         
         # Mostrar ajuste se solicitado
@@ -551,59 +546,61 @@ class FMRGuiApp:
             file_info = self.loaded_files[index]
             self.plot_spectrum(file_info)
     
+    def process_new_files(self):
+        """Processa apenas os arquivos não processados"""
+        unprocessed_files = [f for f in self.loaded_files if not f['processed']]
+
+        if not unprocessed_files:
+            return
+
+        for file_info in unprocessed_files:
+            try:
+                # Extrair Hr e Delta_H
+                Hr, Delta_H = self.analyzer._fit_derivative_lorentzian(
+                    file_info['campo'], file_info['sinal'])
+
+                # Gerar curva ajustada para visualização
+                try:
+                    _, _, fitted_curve = self.analyzer._fit_and_plot_lorentzian(
+                        file_info['campo'], file_info['sinal'])
+                    file_info['fitted_curve'] = fitted_curve
+                except:
+                    # Se falhar, não salvar curva ajustada
+                    pass
+
+                # Atualizar informações do arquivo
+                file_info['Hr'] = Hr
+                file_info['Delta_H'] = Delta_H
+                file_info['processed'] = True
+
+                # Armazenar no analyzer para compatibilidade
+                freq = file_info['frequency']
+                self.analyzer.spectra_data[freq] = {
+                    'campo': file_info['campo'],
+                    'sinal': file_info['sinal'],
+                    'Hr': Hr,
+                    'Delta_H': Delta_H
+                }
+                self.analyzer.resonance_fields[freq] = Hr
+
+            except Exception as e:
+                print(f"Erro ao processar {file_info['filename']}: {e}")
+
+        # Atualizar plots
+        self.update_linewidth_plot()
+
+        # Tentar ajuste de Kittel automaticamente se houver dados suficientes
+        self.auto_fit_kittel()
+
     def process_all_files(self):
-        """Processa todos os arquivos carregados"""
+        """Processa todos os arquivos carregados (mantido para compatibilidade)"""
         if not self.loaded_files:
             messagebox.showwarning("Aviso", "Nenhum arquivo carregado")
             return
-        
-        def process_thread():
-            self.status_var.set("Processando arquivos...")
 
-            for i, file_info in enumerate(self.loaded_files):
-                try:
-                    self.status_var.set(f"Processando {i+1}/{len(self.loaded_files)}: {file_info['filename']}")
-                    
-                    # Extrair Hr e Delta_H
-                    Hr, Delta_H = self.analyzer._fit_derivative_lorentzian(
-                        file_info['campo'], file_info['sinal'])
-
-                    # Gerar curva ajustada para visualização
-                    try:
-                        _, _, fitted_curve = self.analyzer._fit_and_plot_lorentzian(
-                            file_info['campo'], file_info['sinal'])
-                        file_info['fitted_curve'] = fitted_curve
-                    except:
-                        # Se falhar, não salvar curva ajustada
-                        pass
-
-                    # Atualizar informações do arquivo
-                    file_info['Hr'] = Hr
-                    file_info['Delta_H'] = Delta_H
-                    file_info['processed'] = True
-
-                    # Armazenar no analyzer para compatibilidade
-                    freq = file_info['frequency']
-                    self.analyzer.spectra_data[freq] = {
-                        'campo': file_info['campo'],
-                        'sinal': file_info['sinal'],
-                        'Hr': Hr,
-                        'Delta_H': Delta_H
-                    }
-                    self.analyzer.resonance_fields[freq] = Hr
-                    
-                except Exception as e:
-                    print(f"Erro ao processar {file_info['filename']}: {e}")
-            
-            self.status_var.set(f"Processamento concluído: {len(self.loaded_files)} arquivos")
-
-            # Atualizar plots
-            self.update_linewidth_plot()
-
-        # Executar em thread separada para não travar a interface
-        thread = threading.Thread(target=process_thread)
-        thread.daemon = True
-        thread.start()
+        self.status_var.set("Processando arquivos...")
+        self.process_new_files()
+        self.status_var.set(f"Processamento concluído: {len(self.loaded_files)} arquivos")
     
     def show_all_spectra(self):
         """Mostra todos os espectros processados em janela separada"""
@@ -853,8 +850,41 @@ class FMRGuiApp:
         self.linewidth_fig.tight_layout()
         self.linewidth_canvas.draw()
 
+    def auto_fit_kittel(self):
+        """Tenta fazer ajuste de Kittel automaticamente (sem mensagens)"""
+        processed_files = [f for f in self.loaded_files if f['processed'] and 'Hr' in f]
+
+        if len(processed_files) < 3:
+            return  # Silenciosamente retorna se não há dados suficientes
+
+        try:
+            # Preparar dados para ajuste
+            frequencies = []
+            fields_oe = []
+
+            for file_info in processed_files:
+                frequencies.append(file_info['frequency'] * 1e9)  # GHz -> Hz
+                fields_oe.append(file_info['Hr'])  # Oe
+
+            frequencies = np.array(frequencies)
+            fields_tesla = np.array(fields_oe) * 1e-4  # Oe -> T
+
+            # Ordenar dados por frequência (independente da ordem de upload)
+            sort_idx = np.argsort(frequencies)
+            frequencies = frequencies[sort_idx]
+            fields_tesla = fields_tesla[sort_idx]
+
+            # Fazer ajuste no plano
+            self.kittel_params, fitted_fields = self.fmr_fitting.fit_inplane_data(frequencies, fields_tesla)
+
+            # Atualizar plot de Kittel
+            self.update_kittel_plot(frequencies, fields_tesla, fitted_fields)
+
+        except Exception as e:
+            print(f"Erro no ajuste automático de Kittel: {e}")
+
     def fit_kittel_data(self):
-        """Executa ajuste de Kittel e atualiza plot"""
+        """Executa ajuste de Kittel e atualiza plot (mantido para compatibilidade)"""
         processed_files = [f for f in self.loaded_files if f['processed'] and 'Hr' in f]
 
         if len(processed_files) < 3:
