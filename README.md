@@ -1,6 +1,6 @@
 # Software de Análise FMR para Filmes Finos
 
-Software Python abrangente para análise de **Ressonância Ferromagnética (FMR)** em filmes magnéticos finos. Este pacote implementa a equação de Kittel para extrair parâmetros magnéticos (Ms, Ha, Hk) de medidas experimentais de frequência vs. campo de ressonância, incluindo análise automática de largura de linha e ajuste espectral completo.
+Software Python abrangente para análise de **Ressonância Ferromagnética (FMR)** em filmes magnéticos finos. Este pacote implementa a equação de Kittel simplificada para extrair parâmetros magnéticos (Ms, H_eff) de medidas experimentais de frequência vs. campo de ressonância, incluindo análise automática de largura de linha e ajuste espectral completo com interface gráfica interativa.
 
 ## Visão Geral
 
@@ -9,21 +9,23 @@ Este software foi desenvolvido como parte do projeto de pesquisa **PIIC/UFES 202
 ## Características
 
 ### ✅ Funcionalidades Principais
-- **Análise FMR Completa**: Pipeline de processamento completo para dados experimentais
+- **Interface Gráfica Completa**: GUI interativa com processamento automático
 - **Extração Automática de Campo de Ressonância**: Ajuste avançado de derivada Lorentziana
-- **Ajuste da Equação de Kittel**: Geometrias no plano e perpendicular
+- **Ajuste da Equação de Kittel Simplificada**: Modelo de 2 parâmetros para geometria no plano
 - **Análise de Largura de Linha**: Extração automática de larguras de linha FMR (ΔH)
-- **Interface Gráfica**: Interface gráfica amigável para processamento de dados
+- **Processamento Automático**: Upload e análise imediatos sem necessidade de comandos manuais
+- **Seleção Múltipla**: Gerenciamento avançado de arquivos (upload/remoção múltiplos)
+- **Exportação Profissional**: Múltiplos formatos (PNG, PDF, SVG) com alta resolução
 - **Análise Estatística**: Propagação de erros e cálculos de R²
 
 ### 🧬 Implementação Física
-- **Equação de Kittel**: Implementação completa para geometrias de filmes finos
+- **Equação de Kittel Simplificada**: ω₀ = γ√((Hr - H_eff)(Hr - H_eff + Ms))
 - **Parâmetros Magnéticos**:
-  - **Ms**: Magnetização de saturação
-  - **Ha**: Campo de anisotropia no plano
-  - **Hk**: Campo de anisotropia perpendicular
-- **Geometrias**: Configurações perpendicular (θ = 90°) e no plano (θ = 0°)
+  - **Ms**: Magnetização de saturação (3 casas decimais)
+  - **H_eff**: Campo efetivo incluindo anisotropias (1 casa decimal em mT)
+- **Geometria**: Configuração no plano otimizada para estabilidade do ajuste
 - **Razão Giromagnética**: γ = 2.8×10¹⁰ Hz/T para spins eletrônicos
+- **Precisão**: Formatação inteligente baseada em erros estatísticos
 
 ## Início Rápido
 
@@ -77,14 +79,14 @@ A interface gráfica `fmr_gui.py` oferece uma experiência completa para anális
 ![Interface Principal](imagens/01.png)
 
 **Funcionalidades Principais:**
-- **Upload de Arquivos**: Botão "Upload Arquivos .dat" permite carregar múltiplos espectros experimentais
-- **Lista de Arquivos**: Visualização organizada dos espectros carregados por frequência
-- **Controles de Análise**:
-  - "Processar Todos" - Executa extração automática de Hr e ΔH
-  - "Mostrar Todos Espectros" - Visualização em grade de múltiplos espectros
-  - "Ajustar Kittel" - Implementa ajuste da equação de Kittel
-- **Opções de Visualização**: Checkboxes para mostrar campo de ressonância (Hr) e curvas de ajuste
-- **Exportação**: Funcionalidade avançada de salvamento de múltiplos gráficos
+- **Upload Automático**: Botão "Upload Arquivos .dat" carrega e processa múltiplos espectros automaticamente
+- **Gerenciamento de Arquivos**: Visualização organizada com seleção/remoção múltipla (Ctrl/Shift + clique)
+- **Processamento Automático**: Extração imediata de Hr e ΔH após upload
+- **Ajuste Automático de Kittel**: Executado automaticamente quando ≥3 espectros carregados
+- **Visualização**:
+  - "Mostrar Todos Espectros" - Grade com curvas de ajuste lorentziano
+  - Checkboxes para Hr e ajuste individual
+- **Exportação Avançada**: Salvamento seletivo de múltiplos gráficos em PNG/PDF/SVG
 
 ### 2. Análise Individual de Espectros FMR
 
@@ -101,15 +103,15 @@ A interface gráfica `fmr_gui.py` oferece uma experiência completa para anális
 
 ![Ajuste de Kittel](imagens/02%20kittel.png)
 
-**Implementação Completa da Teoria FMR:**
+**Implementação da Teoria FMR Simplificada:**
 - **Dados Experimentais**: Pontos vermelhos mostram frequência vs. campo de ressonância
-- **Ajuste Teórico**: Curva azul implementa equação de Kittel para geometria no plano
+- **Ajuste Teórico**: Curva azul implementa equação de Kittel simplificada (2 parâmetros)
 - **Parâmetros Magnéticos Extraídos**:
-  - **Ms**: Magnetização de saturação (~60.35 mT neste exemplo)
-  - **Ha**: Campo de anisotropia no plano (~12.8 mT)
-  - **Hk**: Campo de anisotropia perpendicular (~100 mT)
-- **Validação Estatística**: R² = 0.997 demonstra excelente qualidade do ajuste
+  - **Ms**: Magnetização de saturação (3 casas decimais em T)
+  - **H_eff**: Campo efetivo incluindo anisotropias (1 casa decimal em mT)
+- **Validação Estatística**: R² > 0.99 típico, demonstrando excelente qualidade do ajuste
 - **Faixa Ampla**: Cobertura de 5-12 GHz para caracterização robusta
+- **Ajuste Automático**: Executado automaticamente quando ≥3 espectros carregados
 
 ### 4. Análise de Largura de Linha vs Frequência
 
@@ -158,13 +160,13 @@ A interface oferece sistema de exportação inteligente que permite:
    - Selecionar múltiplos arquivos experimentais
 
 3. **Processamento Automático**:
-   - Clicar "Processar Todos"
-   - Software extrai automaticamente Hr e ΔH de cada espectro
+   - **Automático após upload**: Software extrai Hr e ΔH de cada espectro imediatamente
+   - **Ajuste de Kittel automático**: Executado quando ≥3 espectros carregados
    - Validação com R² > 0.7 para garantir qualidade
 
 4. **Análise de Parâmetros Magnéticos**:
    - Navegar para aba "Ajuste de Kittel"
-   - Clicar "Ajustar Kittel" para extrair Ms, Ha, Hk
+   - Visualizar Ms e H_eff extraídos automaticamente
    - Verificar qualidade do ajuste (R² > 0.99 típico)
 
 5. **Análise de Amortecimento**:
@@ -183,24 +185,29 @@ A interface oferece sistema de exportação inteligente que permite:
 
 ### Implementação da Equação de Kittel
 
-O software implementa a equação de Kittel completa para ressonância ferromagnética em filmes finos, conforme descrito no framework teórico do relatório final PIIC/UFES 2025.
+O software implementa a equação de Kittel **simplificada** para ressonância ferromagnética em filmes finos, otimizada para estabilidade numérica e precisão do ajuste.
 
-#### Geometria Perpendicular (θ = 90°)
+#### Modelo Simplificado para Geometria no Plano
 ```
-f = (γ/2π) × √[(Hr + Ha + Hk)(Hr + Ha + Hk + Ms)]
-```
-
-#### Geometria no Plano (θ = 0°)
-```
-f = (γ/2π) × √[(Hr + Ha)(Hr + Ha + Ms - Hk)]
+ω₀ = γ√((Hr - H_eff)(Hr - H_eff + Ms))
 ```
 
-Onde:
+Resolvendo para o campo de ressonância Hr:
+```
+Hr = -b + √(b² + 4(ω/γ)²) / 2
+onde: b = Ms - 2H_eff
+```
+
+**Parâmetros:**
 - **γ = 2.8×10¹⁰ Hz/T**: Razão giromagnética para spins eletrônicos
 - **Hr**: Campo de ressonância (extraído dos espectros experimentais)
-- **Ms**: Magnetização de saturação (parâmetro ajustado)
-- **Ha**: Campo de anisotropia no plano (parâmetro ajustado)
-- **Hk**: Campo de anisotropia perpendicular (parâmetro ajustado)
+- **Ms**: Magnetização de saturação (parâmetro ajustado, 3 decimais)
+- **H_eff**: Campo efetivo incluindo anisotropias (parâmetro ajustado, 1 decimal em mT)
+
+**Vantagens do Modelo Simplificado:**
+- Apenas 2 parâmetros → **erros menores** e ajuste mais estável
+- Campo efetivo H_eff engloba todas as contribuições de anisotropia
+- Convergência robusta com chutes iniciais simples (Ms=1T, H_eff=0)
 
 ### Ajuste de Derivada Lorentziana
 

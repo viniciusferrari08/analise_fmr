@@ -4,12 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-This is a scientific Python codebase for analyzing Ferromagnetic Resonance (FMR) experimental data from thin films. The software implements the Kittel equation to extract magnetic parameters (Ms, Ha, Hk) from frequency vs. resonance field measurements.
+This is a scientific Python codebase for analyzing Ferromagnetic Resonance (FMR) experimental data from thin films. The software implements the Kittel equation to extract magnetic parameters (Ms, H_eff) from frequency vs. resonance field measurements.
 
 ## Core Architecture
 
 ### Main Analysis Pipeline
-- `analise_fmr_completa.py` - Complete FMR analysis pipeline that orchestrates the entire workflow
+- `fmr_gui.py` - **PRIMARY TOOL**: Interactive GUI for complete FMR analysis workflow
+- `analise_fmr_completa.py` - Legacy command-line analysis pipeline
 - `extrair_campo_ressonancia.py` - FMRSpectrumAnalyzer class for extracting resonance fields from experimental spectra
 - `fmr_fitting.py` - FMRFitting class implementing Kittel equation fitting and parameter extraction
 
@@ -35,7 +36,10 @@ pip install -r requirements.txt
 
 ### Running Analysis
 ```bash
-# Complete analysis of experimental data
+# GUI Application (RECOMMENDED)
+python fmr_gui.py
+
+# Legacy command-line analysis
 python analise_fmr_completa.py
 
 # Individual spectrum analysis
@@ -67,21 +71,19 @@ python fmr_fitting.py
 ## Physical Theory Implementation
 
 ### Kittel Equation Forms
-**Perpendicular geometry (θ = 90°):**
-```
-f = (γ/2π) × √[(Hr + Ha + Hk)(Hr + Ha + Hk + Ms)]
-```
 
-**In-plane geometry (θ = 0°):**
+**Simplified in-plane geometry (current implementation):**
 ```
-f = (γ/2π) × √[(Hr + Ha)(Hr + Ha + Ms - Hk)]
+ω₀ = γ√((Hr - H_eff)(Hr - H_eff + Ms))
 ```
 
 Where:
 - γ = 2.8×10¹⁰ Hz/T (gyromagnetic ratio)
 - Ms = Saturation magnetization (T)
-- Ha = In-plane anisotropy field (T)  
-- Hk = Perpendicular anisotropy field (T)
+- H_eff = Effective field including anisotropies (T)
+- Hr = Resonance field (T)
+
+This simplified model provides stable fitting with only 2 parameters, reducing error propagation.
 
 ## Code Conventions
 
@@ -115,9 +117,43 @@ Where:
 - Physical parameter validation checks for reasonable magnetic values
 - Comprehensive visualization includes both Hr and ΔH information in plots and tables
 
+## GUI Application Features
+
+### FMR GUI (`fmr_gui.py`)
+The graphical interface provides a complete workflow for FMR analysis:
+
+**Key Features:**
+- **Automatic Processing**: Uploads and processes spectra automatically
+- **Multiple File Selection**: Select and remove multiple files (Ctrl/Shift + click)
+- **Real-time Visualization**: View individual spectra with Lorentzian fits
+- **Automatic Kittel Fitting**: Fits magnetic parameters when ≥3 spectra loaded
+- **Linewidth Analysis**: Automatic extraction and plotting of FMR linewidths
+- **Export Options**: Save plots in PNG, PDF, or SVG formats
+
+**Workflow:**
+1. Upload `.dat` files → automatic processing extracts Hr and ΔH
+2. View individual spectra with resonance field and fit overlay
+3. Kittel fitting runs automatically (displays Ms and H_eff)
+4. Analyze linewidth vs frequency with linear fit
+5. Export all plots with proper formatting
+
+**Interface Tabs:**
+- **Espectro Individual**: View selected spectrum with fit
+- **Largura de Linha**: ΔH vs frequency analysis
+- **Ajuste de Kittel**: Magnetic parameter fitting results
+
 ## Usage Examples
 
-### Basic Resonance Field and Linewidth Extraction
+### GUI Usage (Recommended)
+```bash
+python fmr_gui.py
+# 1. Click "Upload Arquivos .dat"
+# 2. Select experimental files
+# 3. View results in tabs automatically
+# 4. Export plots as needed
+```
+
+### Command-line Usage (Legacy)
 ```python
 from extrair_campo_ressonancia import FMRSpectrumAnalyzer
 
@@ -128,21 +164,4 @@ results = analyzer.process_measurement_folder("EAFExp2025/NiFe_Cu_6nm/medidas se
 for freq, Hr in results.items():
     Delta_H = analyzer.spectra_data[freq]['Delta_H']
     print(f"{freq} GHz: Hr = {Hr:.1f} Oe, ΔH = {Delta_H:.1f} Oe")
-```
-
-### Visualization with Linewidth Information
-```python
-# Plot individual spectrum with fitting overlay
-analyzer.plot_spectrum(5.0, show_resonance=True, show_fit=True)
-
-# Plot all spectra with ΔH in subplot titles
-analyzer.plot_all_spectra()
-```
-
-### Expected Output Format
-```
-Freq(GHz)    Hr(Oe)    Hr(mT)    ΔH(Oe)    ΔH(mT)
-5.0          355.8     35.6      17.8      1.8
-6.0          505.8     50.6      21.1      2.1
-...
 ```

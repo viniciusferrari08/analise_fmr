@@ -160,33 +160,40 @@ class FMRFitting:
         self.gamma = 2.8e10  # razão giromagnética (Hz/T)
         self.mu0 = 4 * np.pi * 1e-7  # permeabilidade magnética do vácuo (H/m)
 
-    def resonance_field_inplane(self, frequency: np.ndarray, Ms: float, Ha: float = 0, Hk: float = 0):
-        """Campo de ressonância para configuração no plano (theta = 0°)."""
+    def resonance_field_inplane_simple(self, frequency: np.ndarray, Ms: float, H_eff: float = 0):
+        """Campo de ressonância para geometria no plano - equação simplificada com campo efetivo.
+        ω₀ = γ√((Hr - H_eff)(Hr - H_eff + Ms))
+        onde H_eff é um campo efetivo que inclui anisotropias
+        """
         omega = 2 * np.pi * frequency
+        # Resolver: (Hr - H_eff)(Hr - H_eff + Ms) = (ω/γ)²
+        # Hr² + Hr(Ms - 2H_eff) + (H_eff² - H_eff*Ms) - (ω/γ)² = 0
         a = 1
-        b = 2 * Ha + Ms - Hk
-        c = Ha**2 + Ha * (Ms - Hk) - (omega / self.gamma)**2
+        b = Ms - 2*H_eff
+        c = H_eff**2 - H_eff*Ms - (omega / self.gamma)**2
+
         discriminant = b**2 - 4*a*c
-        if np.any(discriminant < 0):
-            warnings.warn("Discriminante negativo encontrado. Verifique os parâmetros.")
         Hr = (-b + np.sqrt(np.maximum(discriminant, 0))) / (2*a)
         return Hr
 
     def fit_inplane_data(self, frequency_data: np.ndarray, field_data: np.ndarray):
-        """Ajusta dados experimentais para configuração no plano."""
-        def model_func(freq, Ms, Ha, Hk):
-            return self.resonance_field_inplane(freq, Ms, Ha, Hk)
+        """Ajusta dados experimentais para configuração no plano - modelo com campo efetivo."""
+        def model_func(freq, Ms, H_eff):
+            return self.resonance_field_inplane_simple(freq, Ms, H_eff)
 
-        p0 = [1.0, 0.01, 0.1]  # Ms, Ha, Hk
+        # Chutes iniciais
+        p0 = [1.0, 0.0]  # Ms ~1T, H_eff ~0
 
         try:
-            popt, pcov = curve_fit(model_func, frequency_data, field_data, p0=p0)
+            popt, pcov = curve_fit(model_func, frequency_data, field_data, p0=p0, maxfev=10000)
             perr = np.sqrt(np.diag(pcov))
             fitted_values = model_func(frequency_data, *popt)
 
             params = {
-                'Ms': popt[0], 'Ha': popt[1], 'Hk': popt[2],
-                'Ms_err': perr[0], 'Ha_err': perr[1], 'Hk_err': perr[2]
+                'Ms': popt[0],
+                'H_eff': popt[1],
+                'Ms_err': perr[0],
+                'H_eff_err': perr[1]
             }
 
             return params, fitted_values
@@ -530,7 +537,7 @@ class FMRGuiApp:
                             linewidth=2, alpha=0.7, label=fit_label)
         
         self.ax.set_xlabel('Campo Magnético (Oe)')
-        self.ax.set_ylabel('dχ"/dH (u.a.)')
+        self.ax.set_ylabel('dP"/dH (u.a.)')
         self.ax.set_title(f'Espectro FMR - {file_info["frequency"]:.1f} GHz')
         self.ax.grid(True, alpha=0.3)
         self.ax.legend()
@@ -820,7 +827,7 @@ class FMRGuiApp:
             linewidth_fit = np.polyval(coeffs, freq_fit)
 
             self.linewidth_ax.plot(freq_fit, linewidth_fit, 'b-', linewidth=3,
-                                  label=f'Ajuste linear (slope = {coeffs[0]:.2f} mT/GHz)', zorder=2)
+                                  label='Ajuste linear', zorder=2)
 
             # Calcular R²
             linewidth_pred = np.polyval(coeffs, frequencies)
@@ -829,7 +836,9 @@ class FMRGuiApp:
             r_squared = 1 - (ss_res / ss_tot)
 
             # Adicionar texto com informações do ajuste
-            textstr = f'Ajuste Linear:\ny = {coeffs[0]:.2f}x + {coeffs[1]:.2f}\nR² = {r_squared:.4f}'
+            # Usar mais casas decimais se R² muito próximo de 1
+            r2_format = f'{r_squared:.4f}' if r_squared > 0.999 else f'{r_squared:.3f}'
+            textstr = f'Ajuste Linear:\ny = {coeffs[0]:.2f}x + {coeffs[1]:.2f}\nR² = {r2_format}'
             props = dict(boxstyle='round', facecolor='lightblue', alpha=0.8)
             self.linewidth_ax.text(0.05, 0.95, textstr, transform=self.linewidth_ax.transAxes,
                                   fontsize=10, verticalalignment='top', bbox=props)
@@ -914,21 +923,16 @@ class FMRGuiApp:
             # Atualizar plot de Kittel
             self.update_kittel_plot(frequencies, fields_tesla, fitted_fields)
 
-            # Mostrar parâmetros
-            ms_str = self._format_with_error(self.kittel_params['Ms'],
-                                            self.kittel_params['Ms_err'], 'T')
-            ha_str = self._format_with_error(self.kittel_params['Ha']*1000,
-                                            self.kittel_params['Ha_err']*1000, 'mT')
-            hk_str = self._format_with_error(self.kittel_params['Hk']*1000,
-                                            self.kittel_params['Hk_err']*1000, 'mT')
+            # Mostrar parâmetros com formatação fixa
+            ms_str = f"{self.kittel_params['Ms']:.3f} ± {self.kittel_params['Ms_err']:.3f} T"
+            heff_str = f"{self.kittel_params['H_eff']*1000:.1f} ± {self.kittel_params['H_eff_err']*1000:.1f} mT"
 
             r2 = self.fmr_fitting.calculate_r_squared(fields_tesla, fitted_fields)
 
             params_text = f"""Parâmetros Ajustados (Geometria No Plano):
 Ms = {ms_str}
-Ha = {ha_str}
-Hk = {hk_str}
-R² = {r2:.5f}"""
+H_eff = {heff_str}
+R² = {r2:.4f}"""
 
             messagebox.showinfo("Ajuste de Kittel", params_text)
 
@@ -936,14 +940,23 @@ R² = {r2:.5f}"""
             messagebox.showerror("Erro", f"Erro no ajuste de Kittel:\n{str(e)}")
 
     def _format_with_error(self, value, error, unit=''):
-        """Formata valor ± erro com casas decimais apropriadas"""
-        # Determinar número de casas decimais baseado no erro
+        """Formata valor ± erro com casas decimais apropriadas (máximo 2 casas)"""
         if error == 0:
-            decimals = 2
+            return f"{value:.2f} ± {error:.2f} {unit}"
+
+        # Determinar casas decimais baseado na magnitude do erro
+        # Queremos mostrar 1 dígito significativo no erro
+        log_error = np.log10(abs(error))
+
+        # Número de casas decimais para ter 1 dígito significativo no erro
+        if error >= 1:
+            error_decimals = 0  # Inteiro se erro >= 1
         else:
-            # Casas decimais = número de dígitos até o primeiro significativo do erro
-            decimals = max(0, int(-np.floor(np.log10(abs(error)))) + 1)
-            decimals = min(decimals, 4)  # Limitar a 4 casas decimais
+            # Casas decimais = posição do primeiro dígito significativo
+            error_decimals = int(-np.floor(log_error))
+
+        # Limitar a no máximo 2 casas decimais
+        decimals = min(error_decimals, 2)
 
         format_str = f"{{:.{decimals}f}}"
         return f"{format_str.format(value)} ± {format_str.format(error)} {unit}"
@@ -977,20 +990,15 @@ R² = {r2:.5f}"""
         if self.kittel_params:
             r2 = self.fmr_fitting.calculate_r_squared(fields_experimental, fields_fitted)
 
-            # Formatar parâmetros com precisão apropriada
-            ms_str = self._format_with_error(self.kittel_params['Ms'],
-                                            self.kittel_params['Ms_err'], 'T')
-            ha_str = self._format_with_error(self.kittel_params['Ha']*1000,
-                                            self.kittel_params['Ha_err']*1000, 'mT')
-            hk_str = self._format_with_error(self.kittel_params['Hk']*1000,
-                                            self.kittel_params['Hk_err']*1000, 'mT')
+            # Formatar parâmetros
+            ms_str = f"{self.kittel_params['Ms']:.3f} ± {self.kittel_params['Ms_err']:.3f} T"
+            heff_str = f"{self.kittel_params['H_eff']*1000:.1f} ± {self.kittel_params['H_eff_err']*1000:.1f} mT"
 
             textstr = f"""Parâmetros ajustados:
 Ms = {ms_str}
-Ha = {ha_str}
-Hk = {hk_str}
+H_eff = {heff_str}
 
-R² = {r2:.5f}"""
+R² = {r2:.4f}"""
 
             props = dict(boxstyle='round', facecolor='wheat', alpha=0.8)
             self.kittel_ax.text(0.02, 0.98, textstr, transform=self.kittel_ax.transAxes,
