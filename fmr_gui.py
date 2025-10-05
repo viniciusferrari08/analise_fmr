@@ -820,7 +820,7 @@ class FMRGuiApp:
             linewidth_fit = np.polyval(coeffs, freq_fit)
 
             self.linewidth_ax.plot(freq_fit, linewidth_fit, 'b-', linewidth=3,
-                                  label=f'Ajuste linear (slope = {coeffs[0]:.3f} mT/GHz)', zorder=2)
+                                  label=f'Ajuste linear (slope = {coeffs[0]:.2f} mT/GHz)', zorder=2)
 
             # Calcular R²
             linewidth_pred = np.polyval(coeffs, frequencies)
@@ -829,7 +829,7 @@ class FMRGuiApp:
             r_squared = 1 - (ss_res / ss_tot)
 
             # Adicionar texto com informações do ajuste
-            textstr = f'Ajuste Linear:\ny = {coeffs[0]:.3f}x + {coeffs[1]:.3f}\nR² = {r_squared:.4f}'
+            textstr = f'Ajuste Linear:\ny = {coeffs[0]:.2f}x + {coeffs[1]:.2f}\nR² = {r_squared:.4f}'
             props = dict(boxstyle='round', facecolor='lightblue', alpha=0.8)
             self.linewidth_ax.text(0.05, 0.95, textstr, transform=self.linewidth_ax.transAxes,
                                   fontsize=10, verticalalignment='top', bbox=props)
@@ -915,18 +915,38 @@ class FMRGuiApp:
             self.update_kittel_plot(frequencies, fields_tesla, fitted_fields)
 
             # Mostrar parâmetros
-            params_text = f"""Parâmetros Ajustados (Geometria No Plano):
-Ms = {self.kittel_params['Ms']:.3f} ± {self.kittel_params['Ms_err']:.3f} T
-Ha = {self.kittel_params['Ha']*1000:.1f} ± {self.kittel_params['Ha_err']*1000:.1f} mT
-Hk = {self.kittel_params['Hk']*1000:.1f} ± {self.kittel_params['Hk_err']*1000:.1f} mT"""
+            ms_str = self._format_with_error(self.kittel_params['Ms'],
+                                            self.kittel_params['Ms_err'], 'T')
+            ha_str = self._format_with_error(self.kittel_params['Ha']*1000,
+                                            self.kittel_params['Ha_err']*1000, 'mT')
+            hk_str = self._format_with_error(self.kittel_params['Hk']*1000,
+                                            self.kittel_params['Hk_err']*1000, 'mT')
 
             r2 = self.fmr_fitting.calculate_r_squared(fields_tesla, fitted_fields)
-            params_text += f"\nR² = {r2:.6f}"
+
+            params_text = f"""Parâmetros Ajustados (Geometria No Plano):
+Ms = {ms_str}
+Ha = {ha_str}
+Hk = {hk_str}
+R² = {r2:.5f}"""
 
             messagebox.showinfo("Ajuste de Kittel", params_text)
 
         except Exception as e:
             messagebox.showerror("Erro", f"Erro no ajuste de Kittel:\n{str(e)}")
+
+    def _format_with_error(self, value, error, unit=''):
+        """Formata valor ± erro com casas decimais apropriadas"""
+        # Determinar número de casas decimais baseado no erro
+        if error == 0:
+            decimals = 2
+        else:
+            # Casas decimais = número de dígitos até o primeiro significativo do erro
+            decimals = max(0, int(-np.floor(np.log10(abs(error)))) + 1)
+            decimals = min(decimals, 4)  # Limitar a 4 casas decimais
+
+        format_str = f"{{:.{decimals}f}}"
+        return f"{format_str.format(value)} ± {format_str.format(error)} {unit}"
 
     def update_kittel_plot(self, frequencies, fields_experimental, fields_fitted):
         """Atualiza o plot do ajuste de Kittel"""
@@ -956,12 +976,21 @@ Hk = {self.kittel_params['Hk']*1000:.1f} ± {self.kittel_params['Hk_err']*1000:.
         # Adicionar texto com parâmetros se disponível
         if self.kittel_params:
             r2 = self.fmr_fitting.calculate_r_squared(fields_experimental, fields_fitted)
-            textstr = f"""Parâmetros ajustados:
-Ms = {self.kittel_params['Ms']:.3f} ± {self.kittel_params['Ms_err']:.3f} T
-Ha = {self.kittel_params['Ha']*1000:.1f} ± {self.kittel_params['Ha_err']*1000:.1f} mT
-Hk = {self.kittel_params['Hk']*1000:.1f} ± {self.kittel_params['Hk_err']*1000:.1f} mT
 
-R² = {r2:.6f}"""
+            # Formatar parâmetros com precisão apropriada
+            ms_str = self._format_with_error(self.kittel_params['Ms'],
+                                            self.kittel_params['Ms_err'], 'T')
+            ha_str = self._format_with_error(self.kittel_params['Ha']*1000,
+                                            self.kittel_params['Ha_err']*1000, 'mT')
+            hk_str = self._format_with_error(self.kittel_params['Hk']*1000,
+                                            self.kittel_params['Hk_err']*1000, 'mT')
+
+            textstr = f"""Parâmetros ajustados:
+Ms = {ms_str}
+Ha = {ha_str}
+Hk = {hk_str}
+
+R² = {r2:.5f}"""
 
             props = dict(boxstyle='round', facecolor='wheat', alpha=0.8)
             self.kittel_ax.text(0.02, 0.98, textstr, transform=self.kittel_ax.transAxes,
