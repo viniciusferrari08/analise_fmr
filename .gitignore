@@ -1,0 +1,29 @@
+# Arquivos de configuração do Claude Code
+CLAUDE.md
+
+# Ambientes virtuais Python
+.venv/
+venv/
+env/
+
+# Arquivos Python compilados
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Arquivos de distribuição
+dist/
+build/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Arquivos temporários
+*.tmp
+*.bak
