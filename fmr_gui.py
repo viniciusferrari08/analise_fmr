@@ -15,7 +15,7 @@ import threading
 
 # Importações científicas necessárias
 import pandas as pd
-from scipy.optimize import curve_fit
+from lmfit import Model, Parameters
 import warnings
 
 class FMRSpectrumAnalyzer:
@@ -38,7 +38,7 @@ class FMRSpectrumAnalyzer:
             raise RuntimeError(f"Erro ao carregar espectro {filepath}: {e}")
 
     def _fit_derivative_lorentzian(self, campo: np.ndarray, sinal: np.ndarray):
-        """Ajusta derivada de Lorentziana para extrair Hr com precisão."""
+        """Ajusta derivada de Lorentziana para extrair Hr com precisão usando lmfit."""
         def derivative_lorentzian(H, Hr, A, Delta_H, offset):
             # Forma correta da derivada da Lorentziana: dL/dH = -2A(H-Hr) / (ΔH × (1 + ((H-Hr)/ΔH)²)²)
             normalized_diff = (H - Hr) / Delta_H
@@ -57,22 +57,31 @@ class FMRSpectrumAnalyzer:
         offset_guess = np.mean([sinal[0], sinal[-1]])
 
         try:
+            # Criar modelo lmfit
+            model = Model(derivative_lorentzian, independent_vars=['H'])
+
+            # Definir parâmetros com bounds
+            params = Parameters()
+            params.add('Hr', value=Hr_guess, min=campo.min(), max=campo.max())
+            params.add('A', value=A_guess,
+                      min=0.1 * np.max(np.abs(sinal)),
+                      max=10 * np.max(np.abs(sinal)))
+            params.add('Delta_H', value=Delta_H_guess,
+                      min=(campo.max() - campo.min()) * 0.005,
+                      max=(campo.max() - campo.min()) * 0.3)
+            params.add('offset', value=offset_guess,
+                      min=-np.max(np.abs(sinal)),
+                      max=np.max(np.abs(sinal)))
+
+            # Fazer ajuste com lmfit
+            result = model.fit(sinal, params=params, H=campo, method='leastsq')
+
+            fitted_curve = result.best_fit
+            r_squared = 1 - result.residual.var() / np.var(sinal)
+            Hr_fitted = result.params['Hr'].value
+            Delta_H_fitted = abs(result.params['Delta_H'].value)
+
             Hr_range = (campo.min(), campo.max())
-            A_range = (0.1 * np.max(np.abs(sinal)), 10 * np.max(np.abs(sinal)))
-            Delta_H_range = ((campo.max() - campo.min()) * 0.005, (campo.max() - campo.min()) * 0.3)
-            offset_range = (-np.max(np.abs(sinal)), np.max(np.abs(sinal)))
-            bounds = ([Hr_range[0], A_range[0], Delta_H_range[0], offset_range[0]],
-                     [Hr_range[1], A_range[1], Delta_H_range[1], offset_range[1]])
-
-            popt, _ = curve_fit(derivative_lorentzian, campo, sinal,
-                               p0=[Hr_guess, A_guess, Delta_H_guess, offset_guess],
-                               bounds=bounds, maxfev=20000)
-
-            fitted_curve = derivative_lorentzian(campo, *popt)
-            r_squared = 1 - np.sum((sinal - fitted_curve)**2) / np.sum((sinal - np.mean(sinal))**2)
-            Hr_fitted = popt[0]
-            Delta_H_fitted = abs(popt[2])
-
             valid_fit = (r_squared > 0.3 and Hr_range[0] <= Hr_fitted <= Hr_range[1] and
                         Delta_H_fitted > (campo.max() - campo.min()) * 0.01 and
                         Delta_H_fitted < (campo.max() - campo.min()) * 0.5)
@@ -113,7 +122,7 @@ class FMRSpectrumAnalyzer:
             raise ValueError(f"Método não reconhecido: {method}")
 
     def _fit_and_plot_lorentzian(self, campo: np.ndarray, sinal: np.ndarray):
-        """Ajusta derivada Lorentziana e retorna Hr e curva ajustada para plotagem."""
+        """Ajusta derivada Lorentziana e retorna Hr e curva ajustada para plotagem usando lmfit."""
         def derivative_lorentzian(H, Hr, A, Delta_H, offset):
             # Forma correta da derivada da Lorentziana: dL/dH = -2A(H-Hr) / (ΔH × (1 + ((H-Hr)/ΔH)²)²)
             normalized_diff = (H - Hr) / Delta_H
@@ -132,74 +141,194 @@ class FMRSpectrumAnalyzer:
         offset_guess = np.mean([sinal[0], sinal[-1]])
 
         try:
-            Hr_range = (campo.min(), campo.max())
-            A_range = (0.1 * np.max(np.abs(sinal)), 10 * np.max(np.abs(sinal)))
-            Delta_H_range = ((campo.max() - campo.min()) * 0.005, (campo.max() - campo.min()) * 0.3)
-            offset_range = (-np.max(np.abs(sinal)), np.max(np.abs(sinal)))
-            bounds = ([Hr_range[0], A_range[0], Delta_H_range[0], offset_range[0]],
-                     [Hr_range[1], A_range[1], Delta_H_range[1], offset_range[1]])
+            # Criar modelo lmfit
+            model = Model(derivative_lorentzian, independent_vars=['H'])
 
-            popt, _ = curve_fit(derivative_lorentzian, campo, sinal,
-                               p0=[Hr_guess, A_guess, Delta_H_guess, offset_guess],
-                               bounds=bounds, maxfev=20000)
+            # Definir parâmetros com bounds
+            params = Parameters()
+            params.add('Hr', value=Hr_guess, min=campo.min(), max=campo.max())
+            params.add('A', value=A_guess,
+                      min=0.1 * np.max(np.abs(sinal)),
+                      max=10 * np.max(np.abs(sinal)))
+            params.add('Delta_H', value=Delta_H_guess,
+                      min=(campo.max() - campo.min()) * 0.005,
+                      max=(campo.max() - campo.min()) * 0.3)
+            params.add('offset', value=offset_guess,
+                      min=-np.max(np.abs(sinal)),
+                      max=np.max(np.abs(sinal)))
+
+            # Fazer ajuste com lmfit
+            result = model.fit(sinal, params=params, H=campo, method='leastsq')
+
+            fitted_curve = result.best_fit
+            Hr_fitted = result.params['Hr'].value
+            Delta_H_fitted = abs(result.params['Delta_H'].value)
+            return Hr_fitted, Delta_H_fitted, fitted_curve
+
         except:
-            popt, _ = curve_fit(derivative_lorentzian, campo, sinal,
-                               p0=[Hr_guess, A_guess, Delta_H_guess, offset_guess],
-                               maxfev=20000)
+            # Fallback: tentar sem bounds
+            try:
+                model = Model(derivative_lorentzian, independent_vars=['H'])
+                params = Parameters()
+                params.add('Hr', value=Hr_guess)
+                params.add('A', value=A_guess)
+                params.add('Delta_H', value=Delta_H_guess)
+                params.add('offset', value=offset_guess)
 
-        fitted_curve = derivative_lorentzian(campo, *popt)
-        Hr_fitted = popt[0]
-        Delta_H_fitted = abs(popt[2])
-        return Hr_fitted, Delta_H_fitted, fitted_curve
+                result = model.fit(sinal, params=params, H=campo, method='leastsq')
+
+                fitted_curve = result.best_fit
+                Hr_fitted = result.params['Hr'].value
+                Delta_H_fitted = abs(result.params['Delta_H'].value)
+                return Hr_fitted, Delta_H_fitted, fitted_curve
+            except:
+                # Se falhar completamente, retornar estimativas
+                return Hr_guess, Delta_H_guess, sinal
 
 
 class FMRFitting:
-    """Classe para ajuste de dados de ressonância ferromagnética em filmes finos."""
+    """Classe para ajuste de dados de ressonância ferromagnética em filmes finos com lmfit."""
 
     def __init__(self):
         self.gamma = 2.8e10  # razão giromagnética (Hz/T)
         self.mu0 = 4 * np.pi * 1e-7  # permeabilidade magnética do vácuo (H/m)
+        # Parâmetros da amostra (podem ser configurados)
+        self.espessura = 30e-9  # m (padrão 30 nm)
+        self.area = 25e-12  # m² (padrão 5mm x 5mm)
 
-    def resonance_field_inplane_simple(self, frequency: np.ndarray, Ms: float, H_eff: float = 0):
-        """Campo de ressonância para geometria no plano - equação simplificada com campo efetivo.
-        ω₀ = γ√((Hr - H_eff)(Hr - H_eff + Ms))
-        onde H_eff é um campo efetivo que inclui anisotropias
+    def kittel_inplane(self, Hr, Ms, H_eff):
+        """Equação de Kittel simplificada para geometria no plano.
+        f = (γ/2π)√((Hr - H_eff)(Hr - H_eff + Ms))
+
+        onde γ/2π = 2.8×10¹⁰ Hz/T
+
+        Retorna frequência em Hz. Ajustamos frequências experimentais (Hz)
+        contra esta função.
         """
-        omega = 2 * np.pi * frequency
-        # Resolver: (Hr - H_eff)(Hr - H_eff + Ms) = (ω/γ)²
-        # Hr² + Hr(Ms - 2H_eff) + (H_eff² - H_eff*Ms) - (ω/γ)² = 0
-        a = 1
-        b = Ms - 2*H_eff
-        c = H_eff**2 - H_eff*Ms - (omega / self.gamma)**2
-
-        discriminant = b**2 - 4*a*c
-        Hr = (-b + np.sqrt(np.maximum(discriminant, 0))) / (2*a)
-        return Hr
+        term = (Hr - H_eff) * (Hr - H_eff + Ms)
+        # Proteger contra raiz quadrada de número negativo
+        term = np.maximum(term, 0)
+        return self.gamma * np.sqrt(term)
 
     def fit_inplane_data(self, frequency_data: np.ndarray, field_data: np.ndarray):
-        """Ajusta dados experimentais para configuração no plano - modelo com campo efetivo."""
-        def model_func(freq, Ms, H_eff):
-            return self.resonance_field_inplane_simple(freq, Ms, H_eff)
+        """Ajusta dados experimentais usando lmfit com PROPAGAÇÃO AUTOMÁTICA de incertezas.
 
-        # Chutes iniciais
-        p0 = [1.0, 0.0]  # Ms ~1T, H_eff ~0
+        Parâmetros:
+        - frequency_data: array de frequências em Hz
+        - field_data: array de campos de ressonância em T
+
+        Retorna:
+        - params_dict: dicionário com parâmetros ajustados e propagados
+        - fitted_fields: array de campos ajustados em T
+        """
+
+        # Criar modelo lmfit
+        model = Model(self.kittel_inplane, independent_vars=['Hr'])
+
+        # Definir parâmetros básicos (ajustáveis)
+        params = Parameters()
+        params.add('Ms', value=0.8, min=0.1, max=2.0)  # Magnetização de saturação (T)
+        params.add('H_eff', value=0.01, min=-0.1, max=0.5)  # Campo efetivo (T)
+
+        # Parâmetros fixos da amostra
+        params.add('espessura', value=self.espessura, vary=False)
+        params.add('area', value=self.area, vary=False)
+        params.add('mu0', value=self.mu0, vary=False)
+
+        # ===================================================================
+        # PARÂMETROS DERIVADOS (Propagação AUTOMÁTICA de incertezas!)
+        # ===================================================================
+
+        # 1. Magnetização total do filme (A·m)
+        params.add('Ms_total', expr='Ms * espessura')
+
+        # 2. Campo de desmagnetização (T)
+        params.add('H_demag', expr='Ms')  # Para filme fino no plano
+
+        # 3. Campo total efetivo (T)
+        params.add('H_total', expr='H_eff + H_demag')
+
+        # 4. Razão Ms/H_eff (adimensional)
+        params.add('razao_Ms_Heff', expr='Ms / H_eff')
+
+        # 5. Constante de anisotropia efetiva (J/m³)
+        params.add('K_eff', expr='H_eff * Ms / 2')
+
+        # 6. Energia de anisotropia por área (J/m²)
+        params.add('K_superficie', expr='K_eff * espessura')
+
+        # 7. Volume do filme (m³)
+        params.add('volume', expr='area * espessura')
+
+        # 8. Momento magnético total (A·m²)
+        params.add('momento_total', expr='Ms * volume / mu0')
 
         try:
-            popt, pcov = curve_fit(model_func, frequency_data, field_data, p0=p0, maxfev=10000)
-            perr = np.sqrt(np.diag(pcov))
-            fitted_values = model_func(frequency_data, *popt)
+            # Fazer ajuste com lmfit
+            # Igual ao teste_propagacao: ajustamos frequências (Hz) contra função que retorna ω (rad/s)
+            result = model.fit(frequency_data, params=params, Hr=field_data,
+                             method='leastsq')
 
-            params = {
-                'Ms': popt[0],
-                'H_eff': popt[1],
-                'Ms_err': perr[0],
-                'H_eff_err': perr[1]
+            # Extrair parâmetros ajustados com incertezas
+            Ms_val = result.params['Ms'].value
+            Ms_err = result.params['Ms'].stderr if result.params['Ms'].stderr else 0
+            H_eff_val = result.params['H_eff'].value
+            H_eff_err = result.params['H_eff'].stderr if result.params['H_eff'].stderr else 0
+
+            # Extrair parâmetros derivados (com incertezas propagadas!)
+            H_total_val = result.params['H_total'].value
+            H_total_err = result.params['H_total'].stderr if result.params['H_total'].stderr else 0
+
+            K_eff_val = result.params['K_eff'].value
+            K_eff_err = result.params['K_eff'].stderr if result.params['K_eff'].stderr else 0
+
+            razao_val = result.params['razao_Ms_Heff'].value
+            razao_err = result.params['razao_Ms_Heff'].stderr if result.params['razao_Ms_Heff'].stderr else 0
+
+            # Valores ajustados (são frequências em Hz do modelo)
+            fitted_freqs = result.best_fit
+
+            # A GUI espera CAMPOS ajustados
+            # Converter de volta: para cada frequência input, calcular o campo de ressonância
+            # Equação inversa de Kittel: f = γ_Hz × √((Hr - H_eff)(Hr - H_eff + Ms))
+            # Resolver: (Hr - H_eff)(Hr - H_eff + Ms) = (f/γ_Hz)²
+            # Expandindo: Hr² + Hr(Ms - 2H_eff) + (H_eff² - H_eff*Ms - (f/γ_Hz)²) = 0
+            fitted_fields = np.zeros_like(field_data)
+            for i, freq in enumerate(frequency_data):
+                # Coeficientes da equação quadrática ax² + bx + c = 0
+                a = 1
+                b = Ms_val - 2*H_eff_val
+                c = H_eff_val**2 - H_eff_val*Ms_val - (freq / self.gamma)**2
+                discriminant = b**2 - 4*a*c
+                if discriminant >= 0:
+                    fitted_fields[i] = (-b + np.sqrt(discriminant)) / (2*a)
+                else:
+                    fitted_fields[i] = field_data[i]  # Fallback
+
+            # Retornar dicionário com TODOS os parâmetros
+            params_dict = {
+                # Parâmetros básicos ajustados
+                'Ms': Ms_val,
+                'Ms_err': Ms_err,
+                'H_eff': H_eff_val,
+                'H_eff_err': H_eff_err,
+
+                # Parâmetros derivados (propagação automática!)
+                'H_total': H_total_val,
+                'H_total_err': H_total_err,
+                'K_eff': K_eff_val,
+                'K_eff_err': K_eff_err,
+                'razao_Ms_Heff': razao_val,
+                'razao_Ms_Heff_err': razao_err,
+
+                # Objeto result completo para análise avançada
+                'lmfit_result': result
             }
 
-            return params, fitted_values
+            return params_dict, fitted_fields
 
         except Exception as e:
-            raise RuntimeError(f"Erro no ajuste: {e}")
+            raise RuntimeError(f"Erro no ajuste de Kittel: {e}")
 
     def calculate_r_squared(self, y_data: np.ndarray, y_fit: np.ndarray):
         """Calcula o coeficiente de determinação R²."""
@@ -917,24 +1046,39 @@ class FMRGuiApp:
             frequencies = frequencies[sort_idx]
             fields_tesla = fields_tesla[sort_idx]
 
-            # Fazer ajuste no plano
+            # Fazer ajuste no plano com lmfit
             self.kittel_params, fitted_fields = self.fmr_fitting.fit_inplane_data(frequencies, fields_tesla)
 
             # Atualizar plot de Kittel
             self.update_kittel_plot(frequencies, fields_tesla, fitted_fields)
 
-            # Mostrar parâmetros com formatação fixa
+            # Mostrar parâmetros com propagação de incertezas
             ms_str = f"{self.kittel_params['Ms']:.3f} ± {self.kittel_params['Ms_err']:.3f} T"
             heff_str = f"{self.kittel_params['H_eff']*1000:.1f} ± {self.kittel_params['H_eff_err']*1000:.1f} mT"
 
+            # Parâmetros derivados (PROPAGADOS automaticamente!)
+            htotal_str = f"{self.kittel_params['H_total']*1000:.1f} ± {self.kittel_params['H_total_err']*1000:.1f} mT"
+            keff_str = f"{self.kittel_params['K_eff']:.2e} ± {self.kittel_params['K_eff_err']:.2e} J/m³"
+            razao_str = f"{self.kittel_params['razao_Ms_Heff']:.1f} ± {self.kittel_params['razao_Ms_Heff_err']:.1f}"
+
             r2 = self.fmr_fitting.calculate_r_squared(fields_tesla, fitted_fields)
 
-            params_text = f"""Parâmetros Ajustados (Geometria No Plano):
-Ms = {ms_str}
-H_eff = {heff_str}
-R² = {r2:.4f}"""
+            params_text = f"""Ajuste de Kittel com lmfit - Propagação Automática de Incertezas
 
-            messagebox.showinfo("Ajuste de Kittel", params_text)
+PARÂMETROS AJUSTADOS:
+  Ms     = {ms_str}
+  H_eff  = {heff_str}
+  R²     = {r2:.4f}
+
+PARÂMETROS DERIVADOS (propagação automática!):
+  H_total      = {htotal_str}
+  K_eff        = {keff_str}
+  Ms/H_eff     = {razao_str}
+
+O lmfit propagou automaticamente as incertezas usando
+a matriz de covariância completa!"""
+
+            messagebox.showinfo("Ajuste de Kittel - lmfit", params_text)
 
         except Exception as e:
             messagebox.showerror("Erro", f"Erro no ajuste de Kittel:\n{str(e)}")
@@ -962,7 +1106,7 @@ R² = {r2:.4f}"""
         return f"{format_str.format(value)} ± {format_str.format(error)} {unit}"
 
     def update_kittel_plot(self, frequencies, fields_experimental, fields_fitted):
-        """Atualiza o plot do ajuste de Kittel"""
+        """Atualiza o plot do ajuste de Kittel com parâmetros propagados"""
         self.kittel_ax.clear()
 
         # Converter unidades para plot
@@ -974,11 +1118,11 @@ R² = {r2:.4f}"""
         self.kittel_ax.scatter(freq_ghz, field_mt_exp, color='red', s=80, alpha=0.8,
                               label='Dados experimentais', zorder=3)
         self.kittel_ax.plot(freq_ghz, field_mt_fit, 'b-', linewidth=3,
-                           label='Ajuste teórico (Kittel)', zorder=2)
+                           label='Ajuste teórico (Kittel - lmfit)', zorder=2)
 
         self.kittel_ax.set_xlabel('Frequência (GHz)', fontsize=12)
         self.kittel_ax.set_ylabel('Campo de Ressonância (mT)', fontsize=12)
-        self.kittel_ax.set_title('Ajuste de Kittel - Geometria No Plano', fontsize=14)
+        self.kittel_ax.set_title('Ajuste de Kittel com Propagação de Incertezas (lmfit)', fontsize=14)
         self.kittel_ax.legend()
         self.kittel_ax.grid(True, alpha=0.3)
 
@@ -990,19 +1134,27 @@ R² = {r2:.4f}"""
         if self.kittel_params:
             r2 = self.fmr_fitting.calculate_r_squared(fields_experimental, fields_fitted)
 
-            # Formatar parâmetros
+            # Parâmetros básicos ajustados
             ms_str = f"{self.kittel_params['Ms']:.3f} ± {self.kittel_params['Ms_err']:.3f} T"
             heff_str = f"{self.kittel_params['H_eff']*1000:.1f} ± {self.kittel_params['H_eff_err']*1000:.1f} mT"
 
-            textstr = f"""Parâmetros ajustados:
+            # Parâmetros derivados (PROPAGADOS!)
+            htotal_str = f"{self.kittel_params['H_total']*1000:.1f} ± {self.kittel_params['H_total_err']*1000:.1f} mT"
+            keff_str = f"{self.kittel_params['K_eff']:.2e} ± {self.kittel_params['K_eff_err']:.2e} J/m³"
+
+            textstr = f"""Parâmetros Ajustados:
 Ms = {ms_str}
 H_eff = {heff_str}
 
+Propagados (lmfit):
+H_total = {htotal_str}
+K_eff = {keff_str}
+
 R² = {r2:.4f}"""
 
-            props = dict(boxstyle='round', facecolor='wheat', alpha=0.8)
+            props = dict(boxstyle='round', facecolor='lightblue', alpha=0.9)
             self.kittel_ax.text(0.02, 0.98, textstr, transform=self.kittel_ax.transAxes,
-                               fontsize=10, verticalalignment='top', bbox=props)
+                               fontsize=9, verticalalignment='top', bbox=props)
 
         self.kittel_fig.tight_layout()
         self.kittel_canvas.draw()

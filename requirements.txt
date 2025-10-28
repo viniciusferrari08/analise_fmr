@@ -1,0 +1,19 @@
+# FMR Analysis Software - Python Dependencies
+# Ferromagnetic Resonance data analysis for thin films
+
+# Core numerical and scientific computing
+numpy>=1.20.0
+scipy>=1.7.0
+pandas>=1.3.0
+
+# Plotting and visualization
+matplotlib>=3.5.0
+
+# Advanced fitting with automatic error propagation
+lmfit>=1.0.0
+
+# GUI framework (tkinter is usually included with Python)
+# If tkinter is not available, install it via system package manager:
+# Ubuntu/Debian: sudo apt-get install python3-tk
+# Fedora: sudo dnf install python3-tkinter
+# macOS: included with Python from python.org
